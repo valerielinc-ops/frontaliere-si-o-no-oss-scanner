@@ -9,18 +9,19 @@ ENV DEBIAN_FRONTEND=noninteractive \
     FRONTALIERE_BUILD_MAX_OLD_SPACE_SIZE=14336
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl git build-essential python3 tar \
+    && apt-get install -y --no-install-recommends ca-certificates git build-essential python3 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
 
-RUN set -eu; \
-    archive="/tmp/frontaliere-site.tar.gz"; \
-    curl --fail --location --retry 5 --retry-all-errors \
-      "https://codeload.github.com/valerielinc-ops/frontaliere-si-o-no/tar.gz/${FRONTALIERE_SITE_COMMIT}" \
-      --output "$archive"; \
-    tar --extract --gzip --file "$archive" --strip-components=1 --directory /src; \
-    rm -f "$archive"
+RUN set -eux; \
+    git -c protocol.version=2 -c http.version=HTTP/2 clone --depth 1 --no-tags \
+      --filter=blob:none https://github.com/valerielinc-ops/frontaliere-si-o-no.git /tmp/frontaliere-site; \
+    git -C /tmp/frontaliere-site fetch --depth 1 origin "${FRONTALIERE_SITE_COMMIT}"; \
+    git -C /tmp/frontaliere-site checkout --detach "${FRONTALIERE_SITE_COMMIT}"; \
+    test "$(git -C /tmp/frontaliere-site rev-parse HEAD)" = "${FRONTALIERE_SITE_COMMIT}"; \
+    cp -a /tmp/frontaliere-site/. /src/; \
+    rm -rf /tmp/frontaliere-site
 
 RUN npm ci --no-audit --no-fund
 RUN npm run build:fast
